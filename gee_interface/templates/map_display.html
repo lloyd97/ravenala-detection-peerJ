@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth Engine Map and Ravenala Detection</title>
+    <style>
+        /* Reset margins and padding */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            margin-top: 25px;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+
+        /* Map container - fixed height approach */
+        #map-container {
+            position: relative;
+            height: 500px;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .controls-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 25px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .coordinates {
+            font-size: 1rem;
+            color: #555;
+            padding: 5px 10px;
+            background-color: #f1f8e9;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px;
+        }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 120px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #388E3C;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #update-btn {
+            background-color: #3498db;
+        }
+
+        #update-btn:hover {
+            background-color: #2980b9;
+        }
+
+        #status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-weight: 500;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+
+        #loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            z-index: 10;
+            display: none;
+            font-weight: 500;
+        }
+
+        /* Results section */
+        #ravenala-detection {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: none;
+        }
+
+        #detection-results {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .result-card {
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-card h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.2rem;
+        }
+
+        .result-card img {
+            width: 100%;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            max-height: 500px;
+            object-fit: contain;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* New styles for processed images section */
+        .results-section {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 25px 0;
+        }
+
+        .results-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-container h3 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        .results-container img {
+            width: 100%;
+            max-height: 500px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            object-fit: contain;
+        }
+
+        #predictionResultSection, #percentageSection {
+            margin-top: 30px;
+            text-align: center;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        #predictionResultSection h2, #percentageSection h2 {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        #predictionResult, #percentageResult {
+            font-size: 1.1rem;
+            padding: 10px;
+            background-color: #e8f5e9;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+            min-width: 200px;
+        }
+
+        .positive-result {
+            background-color: #ffebee !important;
+            color: #c62828;
+            font-weight: bold;
+        }
+
+        .negative-result {
+            background-color: #e8f5e9 !important;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .controls-wrapper {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .controls {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .result-card {
+                min-width: 100%;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Earth Engine Map Viewer & Ravenala Detection</h1>
+
+        <div id="map-container">
+            <div id="loading-indicator">Loading map...</div>
+            <iframe id="map-frame" src="/map?lon={{ current_longitude }}&lat={{ current_latitude }}"
+                allowfullscreen></iframe>
+            <!-- CAM Overlay on map - inside container -->
+            <div id="cam-overlay" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100;">
+                <img id="cam-overlay-img" style="width: 100%; height: 100%; object-fit: fill; opacity: 0.6;">
+            </div>
+        </div>
+
+        <div class="controls-wrapper">
+            <div class="coordinates">
+                Coordinates: <span id="current-coords">{{ current_longitude }}, {{ current_latitude }}</span>
+            </div>
+
+            <div class="controls">
+                <input type="number" id="longitude" step="0.001" value="{{ current_longitude }}"
+                    placeholder="Longitude">
+                <input type="number" id="latitude" step="0.001" value="{{ current_latitude }}" placeholder="Latitude">
+                <button id="update-btn">Update Map</button>
+                <button id="live-detect-btn" style="background-color: #e74c3c;">Live Detection</button>
+                <button id="toggle-overlay-btn" style="background-color: #9b59b6; display: none;">Toggle Overlay</button>
+                <button id="screenshot-btn">Full Analysis</button>
+            </div>
+        </div>
+
+        <!-- Detection stats panel -->
+        <div id="detection-stats" style="display: none; background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Live Detection Results</h3>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div><strong>Status:</strong> <span id="detect-status">-</span></div>
+                <div><strong>Detection %:</strong> <span id="detect-percentage">-</span></div>
+                <div><strong>Regions Found:</strong> <span id="detect-count">-</span></div>
+            </div>
+        </div>
+
+        <!-- Batch Processing Panel -->
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Batch Processing - Whole Island</h3>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <button id="test-batch-btn" style="background-color: #f39c12;">Test (5x5 Grid)</button>
+                <button id="full-batch-btn" style="background-color: #c0392b;">Process Whole Mauritius</button>
+                <span id="batch-status" style="color: #666; margin-left: 10px;"></span>
+            </div>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                Test: ~25 tiles around current location | Full: ~180,000 tiles (several hours)
+            </p>
+
+            <!-- Progress Bar Section -->
+            <div id="progress-section" style="display: none; margin-top: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span id="progress-text" style="font-weight: bold; color: #2c3e50;">Processing...</span>
+                    <span id="progress-percentage" style="font-weight: bold; color: #3498db;">0%</span>
+                </div>
+                <!-- Progress Bar -->
+                <div style="width: 100%; height: 25px; background-color: #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #2ecc71); border-radius: 12px; transition: width 0.3s ease;"></div>
+                </div>
+                <!-- Progress Stats -->
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9em; color: #666;">
+                    <span>Tiles: <strong id="progress-current">0</strong> / <strong id="progress-total">0</strong></span>
+                    <span>Ravenala Found: <strong id="progress-ravenala" style="color: #e74c3c;">0</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Results Panel -->
+        <div id="batch-results" style="display: none; background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Batch Processing Results</h3>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div class="result-card" style="flex: 1; min-width: 300px;">
+                    <h4>Isolated Region (Red)</h4>
+                    <img id="batch-isolated-img" style="width: 100%; border-radius: 6px;" src="" alt="Isolated Region">
+                </div>
+                <div class="result-card" style="flex: 1; min-width: 300px;">
+                    <h4>CAM Visualization</h4>
+                    <img id="batch-cam-img" style="width: 100%; border-radius: 6px;" src="" alt="CAM Visualization">
+                </div>
+            </div>
+            <div id="batch-stats" style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;"></div>
+        </div>
+
+        <!-- Ravenala Detection Results Section (initially hidden) -->
+        <div id="ravenala-detection">
+            <h2>Ravenala Detection Results</h2>
+            <div id="detection-results"></div>
+
+            <!-- Processed Images Section -->
+            <h2>Processed Images</h2>
+            <div class="results-section">
+                <div class="results-container" id="camImage">
+                    <h3>CAM Visualization</h3>
+                    <img id="camImg" src="" alt="CAM Visualization">
+                </div>
+            </div>
+
+            <!-- Result Sections -->
+            <div id="predictionResultSection">
+                <h2>Prediction Result</h2>
+                <p id="predictionResult">Analyzing image...</p>
+            </div>
+
+            <div id="percentageSection">
+                <h2>Ravinal Percentage</h2>
+                <p id="percentageResult">Calculating percentage...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+        // DOM elements
+        const mapFrame = document.getElementById('map-frame');
+        const mapContainer = document.getElementById('map-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const longitudeInput = document.getElementById('longitude');
+        const latitudeInput = document.getElementById('latitude');
+        const updateBtn = document.getElementById('update-btn');
+        const screenshotBtn = document.getElementById('screenshot-btn');
+        const liveDetectBtn = document.getElementById('live-detect-btn');
+        const toggleOverlayBtn = document.getElementById('toggle-overlay-btn');
+        const statusDiv = document.getElementById('status');
+        const currentCoordsSpan = document.getElementById('current-coords');
+        const ravenalaDetection = document.getElementById('ravenala-detection');
+        const detectionResults = document.getElementById('detection-results');
+        const camImg = document.getElementById('camImg');
+        const predictionResult = document.getElementById('predictionResult');
+        const percentageResult = document.getElementById('percentageResult');
+        const camOverlay = document.getElementById('cam-overlay');
+        const camOverlayImg = document.getElementById('cam-overlay-img');
+        const detectionStats = document.getElementById('detection-stats');
+        const detectStatus = document.getElementById('detect-status');
+        const detectPercentage = document.getElementById('detect-percentage');
+        const detectCount = document.getElementById('detect-count');
+
+        let overlayVisible = false;
+
+        // Show status message
+        function showStatus(message, type = 'success') {
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+            statusDiv.style.display = 'block';
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Show/hide loading indicator
+        function showLoading(show = true) {
+            loadingIndicator.style.display = show ? 'block' : 'none';
+            updateBtn.disabled = show;
+            screenshotBtn.disabled = show;
+        }
+
+        // Update map with new coordinates
+        function updateMap() {
+            const longitude = parseFloat(longitudeInput.value);
+            const latitude = parseFloat(latitudeInput.value);
+
+            if (isNaN(longitude) || isNaN(latitude)) {
+                showStatus('Please enter valid coordinates', 'error');
+                return;
+            }
+
+            showLoading(true);
+            showStatus('Updating map...', 'loading');
+
+            // Update the iframe src with new coordinates
+            const newSrc = `/map?lon=${longitude}&lat=${latitude}`;
+            mapFrame.src = newSrc;
+
+            // Update the displayed coordinates
+            currentCoordsSpan.textContent = `${longitude}, ${latitude}`;
+        }
+
+        // Handle iframe load events
+        mapFrame.addEventListener('load', function () {
+            showLoading(false);
+            showStatus('Map updated successfully');
+
+            // Set up a reference to the iframe content for screenshot
+            try {
+                mapFrame.contentWindow.postMessage('hello', '*');
+            } catch (e) {
+                console.log('Cannot access iframe content directly');
+            }
+        });
+
+        // Handle iframe error events
+        mapFrame.addEventListener('error', function () {
+            showLoading(false);
+            showStatus('Failed to load map', 'error');
+        });
+
+        // Update button click event
+        updateBtn.addEventListener('click', updateMap);
+
+        // Take screenshot of only the map iframe and analyze for Ravenala
+        screenshotBtn.addEventListener('click', analyzeMapRegion);
+
+        function analyzeMapRegion() {
+            showStatus('Analyzing region...', 'loading');
+            showLoading(true);
+            
+            // Hide results section during processing
+            ravenalaDetection.style.display = 'none';
+
+            try {
+                const filename = "selected_region.png";
+
+                // Focus on the iframe and take screenshot
+                mapFrame.focus();
+
+                // Get the map element from the iframe if possible
+                let mapElement = null;
+                try {
+                    if (mapFrame.contentDocument) {
+                        mapElement = mapFrame.contentDocument.body;
+                    }
+                } catch (e) {
+                    console.log('Cannot access iframe content directly, falling back to iframe element');
+                    mapElement = mapFrame;
+                }
+
+                // Take the screenshot
+                html2canvas(mapElement || mapFrame, {
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: null,
+                    logging: true,
+                    scale: 2  // Higher quality
+                }).then(canvas => {
+                    // Convert canvas to data URL
+                    const imageData = canvas.toDataURL('image/png');
+
+                    // Save directly to the server
+                    fetch('/save-image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            image: imageData,
+                            filename: filename
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showStatus('Analysis in progress...', 'loading');
+                            console.log('Saved to:', data.path);
+                            
+                            // Update text to indicate processing
+                            predictionResult.innerText = "Processing...";
+                            percentageResult.innerText = "Calculating...";
+
+                            // Start checking for the processed images
+                            setTimeout(checkForProcessedImages, 15000);
+                            
+                            showLoading(false);
+                        } else {
+                            showStatus('Error analyzing region: ' + (data.error || 'Unknown error'), 'error');
+                            showLoading(false);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Server error:', error);
+                        showStatus('Error analyzing region', 'error');
+                        showLoading(false);
+                    });
+                }).catch(error => {
+                    console.error('Screenshot error:', error);
+                    showStatus('Error taking screenshot: ' + error, 'error');
+                    showLoading(false);
+                });
+            } catch (e) {
+                console.error('Error taking screenshot:', e);
+                showStatus('Error taking screenshot', 'error');
+                showLoading(false);
+            }
+        }
+
+        // Function to check for processed images and display them when available
+        function checkForProcessedImages() {
+            console.log("Checking for processed images...");
+
+            // Check if the TIF files exist by trying to fetch them
+            fetch(`/images/isolated_region.png?t=${new Date().getTime()}`)
+                .then(response => {
+                    if (response.ok) {
+                        console.log("Isolated region image found");
+                        // Now check for CAM image
+                        return fetch(`/images/cam_region1.png?t=${new Date().getTime()}`);
+                    } else {
+                        throw new Error("Isolated region image not found");
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log("CAM region image found");
+                        // Both images are available
+                        displayProcessedImages(
+                            `/images/isolated_region.png?t=${new Date().getTime()}`,
+                            `/images/cam_region1.png?t=${new Date().getTime()}`
+                        );
+                    } else {
+                        throw new Error("CAM region image not found");
+                    }
+                })
+                .catch(error => {
+                    console.log("Images not yet available, checking again in 15 seconds:", error.message);
+                    setTimeout(checkForProcessedImages, 15000);
+                });
+        }
+
+        // Function to display the processed images when they're available
+        function displayProcessedImages(isolatedRegionPath, camRegionPath) {
+            console.log("Displaying processed images...");
+            
+            // Show the results section
+            ravenalaDetection.style.display = 'block';
+
+            // Display the isolated region
+            detectionResults.innerHTML = `
+                <div class="result-card">
+                    <h3>Ravenala Detection</h3>
+                    <img src="${isolatedRegionPath}" alt="Isolated Region">
+                </div>
+            `;
+
+            // Set the CAM visualization
+            camImg.src = camRegionPath;
+
+            // Set prediction values
+            predictionResult.innerText = "Processing complete";
+            percentageResult.innerText = "See visualizations";
+
+            // Scroll to the results
+            ravenalaDetection.scrollIntoView({ behavior: 'smooth' });
+            
+            showStatus('Analysis complete', 'success');
+        }
+
+        // Show loading on initial page load
+        showLoading(true);
+
+        // Live Detection - overlay CAM on map
+        liveDetectBtn.addEventListener('click', performLiveDetection);
+
+        function performLiveDetection() {
+            showStatus('Running live detection...', 'loading');
+            showLoading(true);
+            liveDetectBtn.disabled = true;
+
+            try {
+                // Get the map element from the iframe
+                let mapElement = null;
+                try {
+                    if (mapFrame.contentDocument) {
+                        mapElement = mapFrame.contentDocument.body;
+                    }
+                } catch (e) {
+                    mapElement = mapFrame;
+                }
+
+                // Take screenshot of current view
+                html2canvas(mapElement || mapFrame, {
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: null,
+                    scale: 1
+                }).then(canvas => {
+                    const imageData = canvas.toDataURL('image/png');
+
+                    // Get current bounds (approximate based on zoom and center)
+                    const lon = parseFloat(longitudeInput.value);
+                    const lat = parseFloat(latitudeInput.value);
+                    const zoom = 19; // Current zoom level
+
+                    // Approximate bounds calculation
+                    const latDelta = 0.002 / Math.pow(2, zoom - 15);
+                    const lonDelta = 0.003 / Math.pow(2, zoom - 15);
+
+                    const bounds = {
+                        north: lat + latDelta,
+                        south: lat - latDelta,
+                        east: lon + lonDelta,
+                        west: lon - lonDelta
+                    };
+
+                    // Send to analyze-region endpoint
+                    fetch('/analyze-region', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            image: imageData,
+                            bounds: bounds
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show overlay on map
+                            camOverlayImg.src = data.overlay_url + '?t=' + new Date().getTime();
+                            camOverlay.style.display = 'block';
+                            overlayVisible = true;
+
+                            // Show toggle button
+                            toggleOverlayBtn.style.display = 'inline-block';
+
+                            // Update stats
+                            detectionStats.style.display = 'block';
+                            detectStatus.textContent = data.predicted_class;
+                            detectStatus.style.color = data.predicted_class.includes('Detected') ? '#c62828' : '#2e7d32';
+                            detectPercentage.textContent = data.detection_percentage + '%';
+                            detectCount.textContent = data.detection_count;
+
+                            showStatus('Live detection complete!', 'success');
+                        } else {
+                            showStatus('Detection failed: ' + data.error, 'error');
+                        }
+                        showLoading(false);
+                        liveDetectBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showStatus('Detection error', 'error');
+                        showLoading(false);
+                        liveDetectBtn.disabled = false;
+                    });
+                }).catch(error => {
+                    console.error('Screenshot error:', error);
+                    showStatus('Screenshot error', 'error');
+                    showLoading(false);
+                    liveDetectBtn.disabled = false;
+                });
+            } catch (e) {
+                console.error('Error:', e);
+                showStatus('Error', 'error');
+                showLoading(false);
+                liveDetectBtn.disabled = false;
+            }
+        }
+
+        // Toggle overlay visibility
+        toggleOverlayBtn.addEventListener('click', function() {
+            overlayVisible = !overlayVisible;
+            camOverlay.style.display = overlayVisible ? 'block' : 'none';
+            toggleOverlayBtn.textContent = overlayVisible ? 'Hide Overlay' : 'Show Overlay';
+        });
+
+        // Hide overlay when map is updated
+        updateBtn.addEventListener('click', function() {
+            camOverlay.style.display = 'none';
+            overlayVisible = false;
+            toggleOverlayBtn.style.display = 'none';
+            detectionStats.style.display = 'none';
+        });
+
+        // Batch Processing
+        const testBatchBtn = document.getElementById('test-batch-btn');
+        const fullBatchBtn = document.getElementById('full-batch-btn');
+        const batchStatus = document.getElementById('batch-status');
+        const batchResults = document.getElementById('batch-results');
+        const batchIsolatedImg = document.getElementById('batch-isolated-img');
+        const batchCamImg = document.getElementById('batch-cam-img');
+        const batchStats = document.getElementById('batch-stats');
+
+        // Progress elements
+        const progressSection = document.getElementById('progress-section');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const progressCurrent = document.getElementById('progress-current');
+        const progressTotal = document.getElementById('progress-total');
+        const progressRavenala = document.getElementById('progress-ravenala');
+
+        let progressPollInterval = null;
+
+        // Function to poll progress
+        function pollProgress() {
+            fetch('/batch-progress')
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress UI
+                    progressBar.style.width = data.percentage + '%';
+                    progressPercentage.textContent = data.percentage + '%';
+                    progressCurrent.textContent = data.current.toLocaleString();
+                    progressTotal.textContent = data.total.toLocaleString();
+                    progressRavenala.textContent = data.ravenala_found.toLocaleString();
+
+                    if (data.status === 'running') {
+                        progressText.textContent = 'Processing tiles...';
+                        batchStatus.textContent = `Processing: ${data.percentage}%`;
+                        batchStatus.style.color = '#3498db';
+                    } else if (data.status === 'complete') {
+                        progressText.textContent = 'Processing Complete!';
+                        progressBar.style.background = 'linear-gradient(90deg, #27ae60, #2ecc71)';
+                        batchStatus.textContent = 'Processing complete!';
+                        batchStatus.style.color = '#27ae60';
+
+                        // Stop polling
+                        if (progressPollInterval) {
+                            clearInterval(progressPollInterval);
+                            progressPollInterval = null;
+                        }
+
+                        // Re-enable buttons
+                        testBatchBtn.disabled = false;
+                        fullBatchBtn.disabled = false;
+
+                        // Show final results
+                        if (data.output_folder) {
+                            const folderName = data.output_folder.split(/[\/\\]/).pop();
+                            batchResults.style.display = 'block';
+                            batchIsolatedImg.src = `/images/${folderName}/mauritius_isolated.png?t=` + new Date().getTime();
+                            batchCamImg.src = `/images/${folderName}/mauritius_cam.png?t=` + new Date().getTime();
+                            batchStats.innerHTML = `
+                                <strong>Total Tiles Processed:</strong> ${data.current.toLocaleString()}<br>
+                                <strong>Ravenala Detected:</strong> ${data.ravenala_found.toLocaleString()} tiles<br>
+                                <strong>Output Folder:</strong> ${data.output_folder}
+                            `;
+                            batchResults.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    } else if (data.status === 'error') {
+                        progressText.textContent = 'Error occurred!';
+                        progressBar.style.background = '#e74c3c';
+                        batchStatus.textContent = 'Error during processing';
+                        batchStatus.style.color = '#e74c3c';
+
+                        // Stop polling
+                        if (progressPollInterval) {
+                            clearInterval(progressPollInterval);
+                            progressPollInterval = null;
+                        }
+
+                        // Re-enable buttons
+                        testBatchBtn.disabled = false;
+                        fullBatchBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling progress:', error);
+                });
+        }
+
+        // Test batch (5x5 grid)
+        testBatchBtn.addEventListener('click', function() {
+            testBatchBtn.disabled = true;
+            fullBatchBtn.disabled = true;
+            batchStatus.textContent = 'Processing 5x5 test grid...';
+            batchStatus.style.color = '#f39c12';
+
+            fetch('/batch-process-test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    batchStatus.textContent = 'Test complete!';
+                    batchStatus.style.color = '#27ae60';
+
+                    // Show results
+                    batchResults.style.display = 'block';
+                    batchIsolatedImg.src = data.combined_isolated + '?t=' + new Date().getTime();
+                    batchCamImg.src = data.combined_cam + '?t=' + new Date().getTime();
+                    batchStats.innerHTML = `
+                        <strong>Results:</strong> ${data.message}<br>
+                        <strong>Ravenala Detected:</strong> ${data.ravenala_count} tiles<br>
+                        <strong>Output Folder:</strong> ${data.output_folder}
+                    `;
+
+                    batchResults.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    batchStatus.textContent = 'Error: ' + data.error;
+                    batchStatus.style.color = '#e74c3c';
+                }
+                testBatchBtn.disabled = false;
+                fullBatchBtn.disabled = false;
+            })
+            .catch(error => {
+                batchStatus.textContent = 'Error: ' + error;
+                batchStatus.style.color = '#e74c3c';
+                testBatchBtn.disabled = false;
+                fullBatchBtn.disabled = false;
+            });
+        });
+
+        // Full Mauritius batch
+        fullBatchBtn.addEventListener('click', function() {
+            if (!confirm('This will process ~180,000 tiles and take several hours. Continue?')) {
+                return;
+            }
+
+            testBatchBtn.disabled = true;
+            fullBatchBtn.disabled = true;
+            batchStatus.textContent = 'Starting full Mauritius scan...';
+            batchStatus.style.color = '#3498db';
+
+            // Show and reset progress section
+            progressSection.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBar.style.background = 'linear-gradient(90deg, #27ae60, #2ecc71)';
+            progressPercentage.textContent = '0%';
+            progressCurrent.textContent = '0';
+            progressTotal.textContent = '0';
+            progressRavenala.textContent = '0';
+            progressText.textContent = 'Initializing...';
+
+            fetch('/batch-process-mauritius', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    batchStatus.textContent = 'Processing started...';
+                    batchStatus.style.color = '#3498db';
+
+                    // Start polling for progress
+                    if (progressPollInterval) {
+                        clearInterval(progressPollInterval);
+                    }
+                    progressPollInterval = setInterval(pollProgress, 2000); // Poll every 2 seconds
+                    pollProgress(); // Initial poll
+                } else {
+                    batchStatus.textContent = 'Error: ' + data.error;
+                    batchStatus.style.color = '#e74c3c';
+                    progressSection.style.display = 'none';
+                    testBatchBtn.disabled = false;
+                    fullBatchBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                batchStatus.textContent = 'Error: ' + error;
+                batchStatus.style.color = '#e74c3c';
+                progressSection.style.display = 'none';
+                testBatchBtn.disabled = false;
+                fullBatchBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
